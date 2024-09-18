@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main  # Change this to your default branch if different
+  pull_request:
+    branches:
+      - main  # Change this to your default branch if different
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.8'
+
+    - name: Install virtualenv
+      run: pip install virtualenv
+
+    - name: Create virtual environment
+      run: |
+        virtualenv env --python=python3.8
+        echo "ENV_DIR=env" >> $GITHUB_ENV
+
+    - name: Activate virtual environment and install requirements
+      run: |
+        source ${{ env.ENV_DIR }}/bin/activate
+        pip install -r requirements.txt
+
+    - name: Reset Database
+      run: |
+        source ${{ env.ENV_DIR }}/bin/activate
+        export FLASK_APP=core/server.py
+        rm core/store.sqlite3 || true  # Ignore error if the file doesn't exist
+        flask db upgrade -d core/migrations/
+
+    - name: Start Server
+      run: |
+        source ${{ env.ENV_DIR }}/bin/activate
+        nohup bash run.sh &  # Start server in the background
+
+    - name: Run Tests
+      run: |
+        source ${{ env.ENV_DIR }}/bin/activate
+        pytest -vvv -s tests/
+
+    - name: Run Tests with Coverage
+      run: |
+        source ${{ env.ENV_DIR }}/bin/activate
+        pytest --cov
+
